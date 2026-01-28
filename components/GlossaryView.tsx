@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { BookOpen, Info, ShieldCheck, Zap, TrendingUp, DollarSign, Search, Plus, Trash2, X, Wand2, Loader2 } from 'lucide-react';
 import { Language } from '../types';
 import { translations } from '../translations';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface GlossaryTerm {
   term: string;
@@ -144,7 +144,12 @@ export const GlossaryView: React.FC<{ lang: Language }> = ({ lang }) => {
           def: data.def
         });
       } else {
-        const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        const genAI = new GoogleGenerativeAI(process.env.API_KEY || '');
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            generationConfig: { responseMimeType: "application/json" }
+        });
+        
         const prompt = `
           As a professional financier for an industrial laundry company, define the term "${newTerm.term}".
           Provide a technical, business-oriented definition focused on the laundry/hospitality industry context.
@@ -156,18 +161,15 @@ export const GlossaryView: React.FC<{ lang: Language }> = ({ lang }) => {
           }
         `;
         
-        const response = await ai.models.generateContent({
-          model: 'gemini-3-flash-preview',
-          contents: prompt,
-          config: { responseMimeType: 'application/json' }
-        });
+        const result = await model.generateContent(prompt);
+        const response = await result.response;
+        const json = JSON.parse(response.text() || '{}');
 
-        const result = JSON.parse(response.text || '{}');
-        if (result.full && result.def) {
+        if (json.full && json.def) {
           setNewTerm({
             ...newTerm,
-            full: result.full,
-            def: result.def
+            full: json.full,
+            def: json.def
           });
         }
       }

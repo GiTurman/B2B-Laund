@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Sparkles, BarChart3, Lightbulb, MessageSquare, Loader2, Play, ChevronRight, ChevronLeft } from 'lucide-react';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ViewID, ScenarioType } from '../types';
 
 interface AIAssistantProps {
@@ -26,7 +26,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
     if (!isExpanded) onToggle();
     setLoading(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const genAI = new GoogleGenerativeAI(process.env.API_KEY || '');
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      
       const prompt = `
         როგორც მსოფლიო დონის ფინანსური მრჩეველი, გააანალიზე მხოლოდ ქვემოთ მოცემული ინფორმაცია სამრეწველო სამრეცხაოს ბიზნეს მოდელისთვის:
         
@@ -42,12 +44,9 @@ export const AIAssistant: React.FC<AIAssistantProps> = ({
         ნუ გამოიყენებ ზოგად ფრაზებს. ფოკუსირდი მხოლოდ ამ მენიუს კონტექსტზე.
       `;
 
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-      });
-
-      setAnalysis(response.text || 'ანალიზი ვერ მოხერხდა.');
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      setAnalysis(response.text() || 'ანალიზი ვერ მოხერხდა.');
     } catch (error) {
       console.error("AI Analysis Error:", error);
       setAnalysis('დაფიქსირდა შეცდომა მონაცემების დამუშავებისას.');

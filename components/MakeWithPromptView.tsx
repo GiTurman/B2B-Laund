@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MessageSquarePlus, Sparkles, Send, Loader2, CheckCircle, AlertCircle, Zap, Clock, ChevronUp, ChevronDown, Trash2 } from 'lucide-react';
 import { Language, ScenarioType } from '../types';
 import { translations } from '../translations';
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 interface MakeWithPromptViewProps {
   lang: Language;
@@ -75,7 +75,8 @@ export const MakeWithPromptView: React.FC<MakeWithPromptViewProps> = ({ lang, sc
     const timestamp = new Date().toLocaleTimeString('ka-GE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+      const genAI = new GoogleGenerativeAI(process.env.API_KEY || '');
+      // Use systemInstruction if supported by version, otherwise incorporate into prompt
       const systemInstruction = `
         You are a financial data parser for LaundroMetric. Convert instructions to JSON.
         Actions: UPDATE_OPEX, UPDATE_FOUNDER, UPDATE_SETTING.
@@ -83,20 +84,23 @@ export const MakeWithPromptView: React.FC<MakeWithPromptViewProps> = ({ lang, sc
         Example: "Invest 50000" -> {"action": "UPDATE_FOUNDER", "target": "Investment", "amount": 50000}
         Return ONLY valid JSON.
       `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: { systemInstruction, responseMimeType: 'application/json' }
+      
+      const model = genAI.getGenerativeModel({ 
+          model: "gemini-1.5-flash",
+          systemInstruction: systemInstruction,
+          generationConfig: { responseMimeType: 'application/json' }
       });
 
-      const result = JSON.parse(response.text || '{}');
-      await executeAction(result);
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const json = JSON.parse(response.text() || '{}');
+
+      await executeAction(json);
       
       // Success Logging
-      const actionDesc = result.action === 'UPDATE_OPEX' ? `Updated ${result.name} Salary to ${result.value}` :
-                         result.action === 'UPDATE_FOUNDER' ? `Added Investment: ${result.amount}` :
-                         result.action === 'UPDATE_SETTING' ? `Changed Setting: ${result.target}` : 'General Update';
+      const actionDesc = json.action === 'UPDATE_OPEX' ? `Updated ${json.name} Salary to ${json.value}` :
+                         json.action === 'UPDATE_FOUNDER' ? `Added Investment: ${json.amount}` :
+                         json.action === 'UPDATE_SETTING' ? `Changed Setting: ${json.target}` : 'General Update';
 
       const logItem: HistoryItem = {
         id: currentId,
