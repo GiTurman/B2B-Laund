@@ -1,7 +1,9 @@
 
-/* Zero Internal Scrollbar policy implementation */
-/* Using standard CSS as Tailwind directives are handled by CDN now */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
+/* Zero Internal Scrollbar policy implementation */
 body {
   margin: 0;
   padding: 0;
